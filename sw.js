@@ -1,5 +1,5 @@
 // Guarda la app en el móvil para que abra rápido y sin conexión. Las llamadas a Claude nunca se guardan.
-const CACHE = "estilista-v1";
+const CACHE = "estilista-v2";
 const SHELL = ["./", "index.html", "css/app.css", "js/app.js", "js/ai.js", "js/db.js", "js/figura.js", "manifest.webmanifest", "icons/icon-192.png", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", e => {

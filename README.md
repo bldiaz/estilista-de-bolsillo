@@ -2,8 +2,8 @@
 
 Tu colorimetría, tu armario y tus looks, con Claude.
 
-- **Diagnóstico de color** a partir de selfies, con nivel de confianza y prueba de telas para confirmarlo.
-- **Tu monigote**: piel, pelo, peinado, ojos, silueta y altura. Cada look se dibuja sobre él, con estampados, tejidos, maquillaje y joyas.
+- **Diagnóstico de color** con un selfie, con nivel de confianza y prueba de telas opcional para confirmarlo.
+- **Tu monigote** con los tonos reales de tu piel y tu pelo, leídos de tu selfie. Cada look se dibuja sobre él, con estampados, tejidos, maquillaje y joyas.
 - **Modo diario y modo noche** (cenas, copas, discoteca, bodas).
 - **¿Me la quedo?**: sube la captura de la tienda o una foto en el probador y recibe un veredicto con tres looks.
 - **Armario, diario de looks y coste por uso**: qué amortizas y qué se queda en la percha.
@@ -47,7 +47,7 @@ El modelo **Económico** es bastante más barato; **Máxima calidad**, más caro
 - Sin maquillaje (o muy poco) y sin filtros.
 - Pelo apartado de la cara, cuello visible.
 - Sostén un **folio blanco** junto a la cara: sirve para corregir el color de la foto.
-- Después haz la **prueba de telas** frente al espejo. Confirma o corrige lo que se ve en las fotos.
+- Si quieres afinar, haz la **prueba de telas** frente al espejo (opcional). Confirma o corrige lo que se ve en la foto.
 
 ## Privacidad
 

@@ -6,10 +6,8 @@ export const AV = {
   pelo: [["#0F0B09", "Negro"], ["#2B1D15", "Castaño muy oscuro"], ["#4A3022", "Castaño"], ["#7A5232", "Castaño claro"], ["#B08452", "Rubio oscuro"], ["#D8B878", "Rubio"], ["#8C3B1E", "Pelirrojo"], ["#9A9590", "Canoso"]],
   ojos: [["#3A2416", "Marrón oscuro"], ["#6B4423", "Marrón"], ["#6E6B3B", "Avellana verdoso"], ["#4C7A4E", "Verde"], ["#5A7FA3", "Azul"], ["#7C8A93", "Gris"]],
   peinado: [["long_bob", "Long bob"], ["largo", "Largo"], ["corto", "Corto"], ["rizado", "Rizado"], ["recogido", "Recogido"]],
-  silueta: [["reloj", "Reloj de arena"], ["pera", "Pera"], ["triangulo_invertido", "Triángulo invertido"], ["rectangulo", "Rectángulo"], ["ovalado", "Ovalado"]],
-  altura: [["baja", "Menos de 1,60"], ["media", "1,60 a 1,70"], ["alta", "Más de 1,70"]],
 };
-export const AV_DEFAULT = { piel: "#E2BFA0", pelo: "#2B1D15", ojos: "#6B4423", peinado: "long_bob", silueta: "rectangulo", altura: "media" };
+export const AV_DEFAULT = { piel: "#E2BFA0", pelo: "#2B1D15", ojos: "#6B4423", peinado: "long_bob" };
 const BODY = { reloj: [19, 12, 19], pera: [16, 13, 21], triangulo_invertido: [22, 14, 16], rectangulo: [18, 16, 17], ovalado: [18, 19, 19] };
 
 export const safeHex = x => (/^#[0-9a-f]{6}$/i.test(String(x || "")) ? x : "#9a8f80");
@@ -32,8 +30,8 @@ export function figura(piezas, av, opts = {}) {
   av = Object.assign({}, AV_DEFAULT, av || {});
   const id = "f" + (++seq) + Math.random().toString(36).slice(2, 5);
   const S = safeHex(av.piel), H = safeHex(av.pelo), E = safeHex(av.ojos), G = "#C9A24A";
-  const [sh, wa, hp] = dims(av);
-  const escala = av.medidas && av.medidas.altura ? Math.max(0.9, Math.min(1.06, av.medidas.altura / 165)) : ({ baja: 0.95, media: 1, alta: 1.04 }[av.altura] || 1);
+  const [sh, wa, hp] = BODY.rectangulo;
+  const escala = 1;
   const L = v => 60 - v, R = v => 60 + v;
   const defs = [];
   let n = 0;
@@ -179,32 +177,3 @@ export function figura(piezas, av, opts = {}) {
 
   return `<svg viewBox="0 -16 120 284" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${opts.label || "Figurín con el look"}"><defs>${defs.join("")}</defs><g transform="translate(60 262) scale(${escala.toFixed(3)}) translate(-60 -262)">${body}</g></svg>`;
 }
-
-// Anchura de hombros, cintura y cadera del dibujo: de las medidas reales si las hay; si no, de la silueta elegida.
-function dims(av) {
-  const m = av.medidas;
-  if (m && m.pecho && m.cintura && m.cadera) {
-    const k = 18 / ((m.pecho + m.cadera) / 2), cl = (v, a, b) => Math.round(Math.max(a, Math.min(b, v)) * 10) / 10;
-    return [cl(m.hombros ? (18 * m.hombros) / 38 : m.pecho * k, 14, 24), cl(m.cintura * k * 1.05, 10, 22), cl(m.cadera * k, 14, 24)];
-  }
-  return BODY[av.silueta] || BODY.rectangulo;
-}
-
-// Morfología a partir de pecho, cintura y cadera (proporciones estándar, en cm).
-export function calcMorfologia(m) {
-  const B = +m.pecho, W = +m.cintura, Hp = +m.cadera;
-  if (!B || !W || !Hp) return null;
-  if (W >= Math.min(B, Hp) - 2) return "ovalado";
-  if (B - Hp <= 2.5 && Hp - B < 9 && (B - W >= 23 || Hp - W >= 25)) return "reloj";
-  if (Hp - B >= 9) return "pera";
-  if (B - Hp >= 9) return "triangulo_invertido";
-  if (Math.abs(B - Hp) < 9 && (B - W >= 20 || Hp - W >= 22)) return "reloj";
-  return "rectangulo";
-}
-export function calcProporcion(m) {
-  const a = +m.altura, p = +m.entrepierna;
-  if (!a || !p) return null;
-  const r = p / a;
-  return r >= 0.47 ? "piernas largas" : r <= 0.44 ? "torso largo y piernas más cortas" : "torso y piernas equilibrados";
-}
-export const alturaRango = cm => (!cm ? null : cm < 160 ? "baja" : cm <= 170 ? "media" : "alta");
