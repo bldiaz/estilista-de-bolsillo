@@ -1,6 +1,6 @@
 import * as db from "./db.js";
 import * as ai from "./ai.js";
-import { figura, AV, AV_DEFAULT, safeHex, guessTipo } from "./figura.js";
+import { figura, AV, AV_DEFAULT, safeHex, guessTipo, calcMorfologia, calcProporcion, alturaRango } from "./figura.js";
 
 const { CATS, TIPOS, ESTAMPADOS, TEJIDOS } = ai;
 
@@ -30,7 +30,7 @@ const errMsg = e => (e && e.code === "cancelled" ? "" : (e && e.message) || "Alg
 
 /* ---------- estado ---------- */
 const state = {
-  closet: [], outfits: [], shopping: [], diario: [], perfil: null, avatar: null,
+  closet: [], outfits: [], shopping: [], diario: [], perfil: null, avatar: null, cuerpo: null,
   modo: lsGet("ebo.modo", "diario") === "noche" ? "noche" : "diario", filter: "Todas", loaded: false,
 };
 const OCASIONES = {
@@ -43,7 +43,7 @@ const MODO_TXT = {
 };
 const SYSTEM = "Eres una estilista y asesora de imagen experta en colorimetría estacional (sistema de 12 estaciones), morfología corporal y estilismo. Hablas en español de España, con consejos concretos, realistas y amables, pensando en prendas que se puedan comprar en las tiendas habituales de la clienta. Evalúas con honestidad: si algo no le favorece, lo dices y propones alternativa.";
 const ESTACIONES = ["Primavera Clara", "Primavera Cálida", "Primavera Brillante", "Verano Claro", "Verano Frío", "Verano Suave", "Otoño Suave", "Otoño Cálido", "Otoño Profundo", "Invierno Profundo", "Invierno Frío", "Invierno Brillante"];
-const avatar = () => Object.assign({}, AV_DEFAULT, state.avatar || {});
+const avatar = () => Object.assign({}, AV_DEFAULT, state.avatar || {}, state.cuerpo && state.cuerpo.medidas ? { medidas: state.cuerpo.medidas } : {});
 const label = (list, k) => (AV[list].find(x => x[0] === k) || [k, k])[1];
 
 function perfilText() {
@@ -56,6 +56,7 @@ Evitar junto a la cara: ${names(p.evitar)}.
 Reglas: ${(p.reglas || []).join(" ")}
 Maquillaje que le favorece: labios ${p.maquillaje?.labios || ""}; ojos ${p.maquillaje?.ojos || ""}; colorete ${p.maquillaje?.colorete || ""}.
 Rostro: ${p.rostro || ""}. Silueta: ${label("silueta", a.silueta)}. Altura: ${label("altura", a.altura)}.
+${cuerpoText()}
 Estilo que busca: ${p.estilo || ""}. Tiendas habituales: ${p.tiendas || "Zara, Mango"}.${p.notas ? " Notas: " + p.notas : ""}`;
 }
 function closetText() {
@@ -135,7 +136,7 @@ function show(t) {
 document.querySelectorAll(".tabbar button").forEach(b => b.addEventListener("click", () => show(b.dataset.tab)));
 
 /* ---------- QUÉ ME PONGO ---------- */
-const PIEZAS_REGLA = "Cada look lleva prenda superior o vestido, parte inferior si procede, calzado y al menos un accesorio. Usa sobre todo prendas de su armario con su id exacto; si falta algo, deja id vacío y descríbelo para comprarlo en sus tiendas, en un color de su paleta. Indica siempre tipo, hex, estampado y tejido de cada pieza. Ten en cuenta su silueta y altura al elegir cortes y largos. Añade maquillaje (labios con hex) y joyas en su metal, adaptados al modo.";
+const PIEZAS_REGLA = "Cada look lleva prenda superior o vestido, parte inferior si procede, calzado y al menos un accesorio. Usa sobre todo prendas de su armario con su id exacto; si falta algo, deja id vacío y descríbelo para comprarlo en sus tiendas, en un color de su paleta. Indica siempre tipo, hex, estampado y tejido de cada pieza. Ten en cuenta su morfología, medidas, proporción y ficha de cortes al elegir cortes, largos y volúmenes. Añade maquillaje (labios con hex) y joyas en su metal, adaptados al modo.";
 function renderLooksExample() {
   const ex = state.modo === "noche"
     ? { titulo: "Cena y copas en Chamberí", ocasion: "Ejemplo · noche", por_que: "Satén burdeos con bota alta: brillo contenido y una línea que alarga.", piezas: [{ nombre: "Jersey fino cuello alto chocolate", tipo: "cuello_alto", hex: "#3B2A20", tejido: "punto" }, { nombre: "Falda midi satén burdeos", tipo: "falda_midi", hex: "#6B2233", tejido: "saten" }, { nombre: "Botas altas espresso", tipo: "botas_altas", hex: "#2B1D15", tejido: "piel" }, { nombre: "Clutch dorado", tipo: "bolso_mano", hex: "#B8913E" }], belleza: { labios: "Rojo ladrillo mate", labios_hex: "#9A3B2E", ojos: "Ahumado suave en bronce", joyas: "Aros dorados medianos" } }
@@ -198,6 +199,7 @@ function renderAnalysis(r, thumb) {
     h("div", { class: "bars" }, keys.map(([k, l]) => [h("span", {}, l), h("div", { class: "bar" }, h("i", { style: "width:" + clamp10(p[k]) * 10 + "%" })), h("span", { class: "num" }, clamp10(p[k]))])),
     r.colorimetria ? h("div", {}, h("h3", {}, "Colorimetría"), h("p", {}, r.colorimetria)) : null,
     r.silueta ? h("div", {}, h("h3", {}, "Tu silueta"), h("p", {}, r.silueta)) : null,
+    r.talla ? h("div", {}, h("h3", {}, "Talla"), h("p", {}, r.talla)) : null,
     r.estilo ? h("div", {}, h("h3", {}, "Estilo"), h("p", {}, r.estilo)) : null,
     (r.como_llevarla || []).length ? h("div", {}, h("h3", {}, "Cómo sacarle partido"), h("ul", { class: "tips" }, r.como_llevarla.map(t => h("li", {}, t)))) : null,
     (r.outfits || []).length ? h("div", { class: "looks" }, h("h3", {}, "Así quedaría"), r.outfits.map(o => outfitEl(o))) : null,
@@ -361,13 +363,13 @@ function avatarEditor(container, draft, onChange) {
     prev.innerHTML = figura(PREVIEW_LOOK, draft);
     const sw = (key, title) => h("div", {}, h("h3", {}, title), h("div", { class: "swrow" }, AV[key].map(([c, n]) => h("button", { type: "button", class: "swb", style: "background:" + c, "aria-label": n, title: n, "aria-pressed": String(String(draft[key]).toLowerCase() === c.toLowerCase()), onclick: () => { draft[key] = c; onChange && onChange(); paint(); } }))));
     const ch = (key, title) => h("div", {}, h("h3", {}, title), h("div", { class: "chips" }, AV[key].map(([k, n]) => h("button", { type: "button", class: "chip", "aria-pressed": String(draft[key] === k), onclick: () => { draft[key] = k; onChange && onChange(); paint(); } }, n))));
-    ctrls.replaceChildren(sw("piel", "Tono de piel"), sw("pelo", "Color de pelo"), ch("peinado", "Peinado"), sw("ojos", "Ojos"), ch("silueta", "Silueta"), ch("altura", "Altura"));
+    ctrls.replaceChildren(sw("piel", "Tono de piel"), sw("pelo", "Color de pelo"), ch("peinado", "Peinado"), sw("ojos", "Ojos"), ...(draft.medidas && draft.medidas.pecho ? [h("p", { class: "status" }, "Tu silueta y altura salen de tus medidas reales (sección Mi cuerpo).")] : [ch("silueta", "Silueta"), ch("altura", "Altura")]));
   };
   paint();
   container.replaceChildren(h("div", { class: "avatar" }, prev, ctrls));
 }
 let avDraft = { ...AV_DEFAULT };
-$("avSave").addEventListener("click", async () => { await db.setKV("avatar", { ...avDraft }); $("avStatus").textContent = "Guardado. Así saldrás en tus looks."; });
+$("avSave").addEventListener("click", async () => { const a = { ...avDraft }; delete a.medidas; await db.setKV("avatar", a); $("avStatus").textContent = "Guardado. Así saldrás en tus looks."; });
 
 /* ---------- PERFIL ---------- */
 const pal = a => (a || []).map(c => h("div", {}, h("i", { style: "background-color:" + safeHex(c.hex) }), c.nombre || ""));
@@ -387,6 +389,117 @@ function renderPerfil() {
     h("div", { class: "card" }, h("h3", {}, "Reglas rápidas"), h("ul", { class: "tips" }, (p.reglas || []).map(t => h("li", {}, t))),
       p.maquillaje ? [h("h3", {}, "Maquillaje"), h("ul", { class: "tips" }, h("li", {}, "Labios: " + p.maquillaje.labios), h("li", {}, "Ojos: " + p.maquillaje.ojos), h("li", {}, "Colorete: " + p.maquillaje.colorete))] : null),
     h("div", {}, h("button", { class: "btn ghost small", type: "button", onclick: () => openOnb("diagnostico", true) }, "Repetir diagnóstico"))));
+}
+
+/* ---------- MI CUERPO ---------- */
+const MORF_TXT = { reloj: "Reloj de arena", pera: "Pera (triángulo)", triangulo_invertido: "Triángulo invertido", rectangulo: "Rectángulo", ovalado: "Ovalado" };
+const MEDIDAS = [["altura", "Altura (cm)", "165"], ["pecho", "Pecho (cm)", "90"], ["cintura", "Cintura (cm)", "70"], ["cadera", "Cadera (cm)", "96"], ["hombros", "Hombros (cm)", "38"], ["entrepierna", "Entrepierna (cm)", "76"], ["peso", "Peso (kg, opcional)", ""]];
+const TALLAS = [["zara_sup", "Zara arriba", "S"], ["zara_inf", "Zara abajo", "38"], ["mango_sup", "Mango arriba", "S"], ["mango_inf", "Mango abajo", "38"], ["zapato", "Calzado (EU)", "38"]];
+function cuerpoText() {
+  const c = state.cuerpo; if (!c) return "";
+  const m = c.medidas || {}, t = c.tallas || {};
+  const med = [["altura", "altura", "cm"], ["pecho", "pecho", "cm"], ["cintura", "cintura", "cm"], ["cadera", "cadera", "cm"], ["hombros", "ancho de hombros", "cm"], ["entrepierna", "entrepierna", "cm"]].filter(([k]) => m[k]).map(([k, n, u]) => `${n} ${m[k]} ${u}`).join(", ");
+  const tal = TALLAS.filter(([k]) => t[k]).map(([k, n]) => `${n} ${t[k]}`).join(", ");
+  const f = c.ficha;
+  return [med && `Medidas: ${med}.${m.peso ? ` Peso ${m.peso} kg (dato que ha querido indicar; úsalo solo para ajuste y tallas).` : ""}`,
+    c.morfologia && `Morfología: ${MORF_TXT[c.morfologia]}.`, c.proporcion && `Proporción: ${c.proporcion}.`,
+    tal && `Tallas habituales: ${tal}.`, c.notas && `Notas de ajuste: ${c.notas}.`,
+    f && `Ficha de cortes: ${(f.zonas || []).map(z => `${z.zona}: favorece ${z.favorece}; evitar ${z.evitar}`).join(" | ")}. Largos: ${f.largos}`].filter(Boolean).join("\n");
+}
+let cfSeq = 0;
+function cuerpoForm(c, pre) {
+  pre = pre || "cu" + (++cfSeq);
+  const m = c.medidas || {}, t = c.tallas || {};
+  const inputs = {}, tallas = {};
+  const morfOut = h("div", { class: "row" });
+  const update = () => {
+    const d = read();
+    const mo = calcMorfologia(d.medidas), pr = calcProporcion(d.medidas);
+    morfOut.replaceChildren(...[mo && h("span", { class: "pill ok" }, MORF_TXT[mo]), pr && h("span", { class: "pill warn" }, pr)].filter(Boolean));
+  };
+  const field = ([k, l, ph], store, val, num) => { const i = h("input", { id: pre + "-" + k, inputmode: num ? "decimal" : "text", placeholder: ph, value: val ?? "", oninput: update }); store[k] = i; return h("label", { class: "f", for: pre + "-" + k }, l, i); };
+  let foto = null;
+  const fotoPrev = h("div", { class: "previews" });
+  const notas = h("textarea", { id: pre + "-notas", placeholder: "Siempre me sobra cintura en los pantalones, tengo mucho pecho para las camisas…" }, c.notas || "");
+  function read() {
+    const medidas = {}; for (const [k] of MEDIDAS) { const v = price(inputs[k].value); if (v) medidas[k] = v; }
+    const ta = {}; for (const [k] of TALLAS) { const v = tallas[k].value.trim(); if (v) ta[k] = v; }
+    return { medidas, tallas: ta, notas: notas.value.trim() };
+  }
+  const el = h("div", { class: "stack" },
+    h("details", { class: "note" }, h("summary", { style: "cursor:pointer;font-weight:600;color:var(--ink)" }, "Cómo medirte"),
+      h("ul", { class: "tips", style: "margin-top:8px" },
+        h("li", {}, "Con cinta métrica de costura, en ropa interior, sin apretar."),
+        h("li", {}, "Pecho: por la parte más prominente, con la cinta horizontal."),
+        h("li", {}, "Cintura: la parte más estrecha del tronco, por encima del ombligo."),
+        h("li", {}, "Cadera: la parte más ancha de los glúteos."),
+        h("li", {}, "Hombros: de un hueso del hombro al otro, por la espalda."),
+        h("li", {}, "Entrepierna: desde la ingle hasta el suelo, descalza."))),
+    h("div", { class: "grid2" }, MEDIDAS.map(f => field(f, inputs, m[f[0]], true))),
+    morfOut,
+    h("h3", {}, "Tus tallas habituales"),
+    h("div", { class: "grid2" }, TALLAS.map(f => field(f, tallas, t[f[0]], false))),
+    h("label", { class: "f", for: pre + "-notas" }, "Cómo te suele quedar la ropa (opcional)", notas),
+    h("label", { class: "drop", for: pre + "-foto" }, h("strong", {}, "Foto de cuerpo entero (opcional)"), h("span", {}, "De frente, ropa ajustada y luz uniforme. Solo se usa para tu ficha y no se guarda."),
+      h("input", { type: "file", id: pre + "-foto", accept: "image/*", hidden: true, onchange: e => { foto = e.target.files[0] || null; fotoPrev.replaceChildren(...(foto ? [h("img", { src: URL.createObjectURL(foto), alt: "Foto de cuerpo entero" })] : [])); } })),
+    fotoPrev);
+  update();
+  return { el, read, get foto() { return foto; } };
+}
+async function saveCuerpo(form, er) {
+  const d = form.read(), m = d.medidas;
+  const bad = (k, a, b) => m[k] && (m[k] < a || m[k] > b);
+  if (bad("altura", 120, 215)) { showErr(er, "Revisa la altura: escríbela en centímetros, por ejemplo 165."); return false; }
+  if (["pecho", "cintura", "cadera"].some(k => bad(k, 45, 200))) { showErr(er, "Revisa pecho, cintura y cadera: van en centímetros, por ejemplo 90, 70 y 96."); return false; }
+  if (bad("peso", 30, 250)) { showErr(er, "Revisa el peso: va en kilos."); return false; }
+  showErr(er, "");
+  const prev = state.cuerpo || {};
+  const morfologia = calcMorfologia(m) || prev.morfologia || null;
+  const cuerpo = { ...d, morfologia, proporcion: calcProporcion(m), ficha: prev.ficha || null, actualizado: Date.now() };
+  await db.setKV("cuerpo", cuerpo);
+  const av = { ...avatar() }; delete av.medidas;
+  if (morfologia) av.silueta = morfologia;
+  if (alturaRango(m.altura)) av.altura = alturaRango(m.altura);
+  await db.setKV("avatar", av);
+  if (ai.getKey() && (Object.keys(m).length || form.foto)) generarFicha(form.foto);
+  return true;
+}
+let fichaBusy = false;
+async function generarFicha(foto) {
+  if (fichaBusy) return; fichaBusy = true;
+  const st = $("fichaStatus"); if (st) st.textContent = "Preparando tu ficha de cortes…";
+  try {
+    const images = foto ? [await ai.imageBlock(foto, 1400)] : [];
+    const r = await ai.ask({ system: SYSTEM, images, schema: ai.S_FICHA,
+      prompt: `Crea la ficha de cortes y morfología de esta clienta.\n\n${cuerpoText()}\nEstilo que busca: ${state.perfil?.estilo || "no indicado"}. Tiendas: ${state.perfil?.tiendas || "Zara, Mango"}.\n${foto ? "Hay una foto de cuerpo entero: úsala para afinar la morfología y las proporciones (hombros, cintura, longitud de piernas). Si contradice las medidas, confía más en las medidas." : ""}\nHabla siempre en positivo: el objetivo es equilibrar proporciones y realzar, nunca adelgazar ni ocultar defectos. No hagas comentarios sobre el peso.` });
+    await db.setKV("cuerpo", { ...(state.cuerpo || {}), ficha: r, actualizado: Date.now() });
+    if ($("fichaStatus")) $("fichaStatus").textContent = "";
+  } catch (e) { if ($("fichaStatus")) $("fichaStatus").textContent = errMsg(e) || "No se pudo crear la ficha."; }
+  fichaBusy = false;
+}
+function renderCuerpo() {
+  const c = state.cuerpo, f = c && c.ficha, m = (c && c.medidas) || {};
+  const form = cuerpoForm(c || {});
+  const er = h("p", { class: "err", hidden: true }), ok = h("span", { class: "status" });
+  const formWrap = h("div", { class: "stack", hidden: !!c }, form.el, er,
+    h("div", { class: "row" }, h("button", { class: "btn", type: "button", onclick: async () => { if (await saveCuerpo(form, er)) ok.textContent = "Guardado."; } }, "Guardar"), ok));
+  const summary = c ? h("div", { class: "row" },
+    c.morfologia ? h("span", { class: "pill ok" }, MORF_TXT[c.morfologia]) : null,
+    c.proporcion ? h("span", { class: "pill warn" }, c.proporcion) : null,
+    m.altura ? h("span", { class: "status" }, `${m.altura} cm`) : null) : null;
+  put($("cuerpoView"),
+    h("div", {}, h("h2", {}, "Mi cuerpo"), h("p", { class: "lead" }, c ? (f ? f.resumen : "Guarda tus medidas para recibir tu ficha de cortes.") : "Tus medidas ajustan el monigote y los consejos de corte, largo y talla. Todo es opcional.")),
+    summary,
+    f ? h("div", { class: "stack" },
+      h("div", {}, h("h3", {}, "Para realzar"), h("ul", { class: "tips" }, (f.realzar || []).map(t => h("li", {}, t)))),
+      ...(f.zonas || []).map(z => h("div", { class: "zona" }, h("b", {}, z.zona), h("p", {}, h("span", { class: "fav" }, "Te favorece: "), z.favorece), h("p", {}, h("span", { class: "evi" }, "Menos: "), z.evitar))),
+      h("div", {}, h("h3", {}, "Largos"), h("p", {}, f.largos)),
+      h("div", {}, h("h3", {}, "Tallas"), h("p", {}, f.tallas))) : null,
+    h("span", { class: "status", id: "fichaStatus" }, fichaBusy ? "Preparando tu ficha de cortes…" : ""),
+    c ? h("div", { class: "row" },
+      h("button", { class: "btn ghost small", type: "button", onclick: ev => { formWrap.hidden = !formWrap.hidden; ev.target.textContent = formWrap.hidden ? "Editar mis medidas" : "Ocultar medidas"; } }, "Editar mis medidas"),
+      ai.getKey() ? h("button", { class: "linkbtn", type: "button", onclick: () => generarFicha(null) }, f ? "Rehacer la ficha" : "Crear mi ficha") : null) : null,
+    formWrap);
 }
 
 /* ---------- AJUSTES ---------- */
@@ -414,7 +527,7 @@ $("wipeBtn").addEventListener("click", async ev => {
 });
 
 /* ---------- BIENVENIDA Y CONFIGURACIÓN ---------- */
-const STEPS = ["bienvenida", "clave", "monigote", "diagnostico", "telas", "listo"];
+const STEPS = ["bienvenida", "clave", "monigote", "cuerpo", "diagnostico", "telas", "listo"];
 let onb = { step: "bienvenida", single: false, draft: null, files: [], result: null, answers: {} };
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
@@ -435,7 +548,7 @@ function next() {
   if (onb.single && onb.step === "telas") return closeOnb();
   const i = STEPS.indexOf(onb.step); onb.step = STEPS[i + 1] || "listo"; renderOnb();
 }
-function stepsBar() { const i = STEPS.indexOf(onb.step); return h("div", { class: "steps", "aria-hidden": "true" }, STEPS.slice(1, 5).map((s, k) => h("i", { class: k < i ? "on" : "" }))); }
+function stepsBar() { const i = STEPS.indexOf(onb.step); return h("div", { class: "steps", "aria-hidden": "true" }, STEPS.slice(1, 6).map((s, k) => h("i", { class: k < i ? "on" : "" }))); }
 function renderOnb() {
   const box = $("onbIn"), s = onb.step;
   const close = onb.single ? h("button", { class: "linkbtn", type: "button", onclick: closeOnb, style: "align-self:flex-end" }, "Cerrar") : null;
@@ -476,7 +589,15 @@ function renderOnb() {
     const ed = h("div");
     avatarEditor(ed, onb.draft);
     put(box, close, stepsBar(), h("h2", {}, "Crea tu monigote"), h("p", { class: "lead" }, "Así aparecerás en cada look. Tu silueta y tu altura también sirven para recomendarte cortes y largos."), ed,
-      h("button", { class: "btn block", type: "button", onclick: async () => { await db.setKV("avatar", { ...onb.draft }); next(); } }, "Siguiente"));
+      h("button", { class: "btn block", type: "button", onclick: async () => { const a = { ...onb.draft }; delete a.medidas; await db.setKV("avatar", a); next(); } }, "Siguiente"));
+  } else if (s === "cuerpo") {
+    const form = cuerpoForm(state.cuerpo || {}, "onbcu");
+    const er = h("p", { class: "err", hidden: true });
+    put(box, close, stepsBar(), h("h2", {}, "Tu cuerpo"),
+      h("p", { class: "lead" }, "Con tus medidas calculo tu morfología, ajusto el monigote a tus proporciones y te recomiendo cortes, largos y tallas. Todo es opcional y se queda en tu móvil."),
+      form.el, er,
+      h("button", { class: "btn block", type: "button", onclick: async () => { const r = await saveCuerpo(form, er); if (r) next(); } }, "Guardar y seguir"),
+      h("button", { class: "linkbtn", type: "button", style: "align-self:center", onclick: next }, "Lo hago más tarde"));
   } else if (s === "diagnostico") {
     const prev = h("div", { class: "previews" }), er = h("p", { class: "err", hidden: true }), st = h("span", { class: "status" });
     const p = state.perfil || {};
@@ -580,6 +701,7 @@ function alertIn(box, msg) { box.append(h("p", { class: "err" }, msg)); }
   db.on("shopping", l => { state.shopping = l; renderShopping(); loaded(); });
   db.on("diario", l => { state.diario = l; renderDiario(); renderCloset(); loaded(); });
   db.onKV("avatar", a => { state.avatar = a || null; avDraft = { ...avatar() }; avatarEditor($("avEditor"), avDraft, () => { $("avStatus").textContent = ""; }); renderSaved(); renderDiario(); if ($("ofResult").dataset.example) renderLooksExample(); });
+  db.onKV("cuerpo", c => { state.cuerpo = c || null; renderCuerpo(); renderSaved(); renderDiario(); if ($("ofResult").dataset.example) renderLooksExample(); avDraft = { ...avatar() }; avatarEditor($("avEditor"), avDraft, () => { $("avStatus").textContent = ""; }); });
   let first = true;
   db.onKV("perfil", async p => {
     state.perfil = p || null; renderPerfil(); loaded();

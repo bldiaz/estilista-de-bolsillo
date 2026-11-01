@@ -46,7 +46,7 @@ export function onKV(key, cb) { (listeners["kv:" + key] = listeners["kv:" + key]
 export async function exportAll() {
   const out = { app: "estilista-de-bolsillo", version: 1, exportado: new Date().toISOString(), kv: {} };
   for (const s of STORES.slice(1)) out[s] = await all(s);
-  for (const k of ["perfil", "avatar"]) out.kv[k] = await getKV(k);
+  for (const k of ["perfil", "avatar", "cuerpo"]) out.kv[k] = await getKV(k);
   return out;
 }
 export async function importAll(data) {
@@ -60,7 +60,7 @@ export async function importAll(data) {
 export async function wipe() {
   for (const s of STORES) await tx(s, "readwrite", st => st.clear());
   STORES.slice(1).forEach(emit);
-  for (const k of ["perfil", "avatar"]) (listeners["kv:" + k] || []).forEach(cb => cb(undefined));
+  for (const k of ["perfil", "avatar", "cuerpo"]) (listeners["kv:" + k] || []).forEach(cb => cb(undefined));
 }
 export async function persist() {
   try { if (navigator.storage && navigator.storage.persist) return await navigator.storage.persist(); } catch (e) {}

@@ -128,7 +128,8 @@ export const S_ANALISIS = obj({
   puntuaciones: obj({ color: int("0 a 10"), estilo: int("0 a 10"), versatilidad: int("0 a 10"), calidad_precio: int("0 a 10") }),
   veredicto: en(["quedatela", "con_matices", "devuelvela"]),
   titular: str("Una frase directa"), colorimetria: str("2-3 frases"), estilo: str("1-2 frases"),
-  silueta: str("1-2 frases sobre cómo le sienta el corte según su tipo de cuerpo y altura"),
+  silueta: str("1-2 frases sobre cómo le sienta el corte según su morfología, medidas y altura"),
+  talla: str("Talla recomendada en esa tienda según sus tallas habituales y el patrón de la prenda, y qué vigilar en el probador"),
   como_llevarla: arr(str(), "Máximo 3 consejos concretos"), outfits: arr(S_OUTFIT, "Exactamente 3 looks"),
 });
 export const S_PERFIL = obj({
@@ -141,6 +142,14 @@ export const S_PERFIL = obj({
   neutros: arr(COLOR, "6 neutros"), acentos: arr(COLOR, "8 acentos"), evitar: arr(COLOR, "4 colores a evitar junto a la cara"),
   reglas: arr(str(), "4 reglas concretas de prendas y combinaciones"),
   maquillaje: obj({ labios: str(), ojos: str(), colorete: str() }),
+});
+export const ZONAS = ["Escotes y cuellos", "Partes de arriba", "Pantalones", "Faldas", "Vestidos", "Abrigos y chaquetas", "Calzado"];
+export const S_FICHA = obj({
+  resumen: str("2-3 frases en positivo sobre sus proporciones"),
+  realzar: arr(str(), "3 puntos de su figura para realzar"),
+  zonas: arr(obj({ zona: en(ZONAS), favorece: str("Cortes y detalles concretos que le favorecen"), evitar: str("Lo que menos le favorece y por qué, sin juzgar") }), "Una entrada por cada zona"),
+  largos: str("Largos de falda, vestido, abrigo y bajo de pantalón según su altura y proporción"),
+  tallas: str("Cómo elegir talla y patrón en sus tiendas habituales"),
 });
 export const S_IDENT = obj({ nombre: str("Nombre corto en español"), categoria: en(CATS), tipo: en(TIPOS), color: str(), hex: str("#rrggbb"), estampado: en(ESTAMPADOS), tejido: en(TEJIDOS) });
 export const S_COMPRAS = obj({ items: arr(obj({ prenda: str(), color: str(), hex: str("#rrggbb"), prioridad: en(["alta", "media", "baja"]), por_que: str("1 frase"), buscar: str("2-4 palabras para buscar en la tienda"), tienda: str() }), "Entre 6 y 9 prendas") });
