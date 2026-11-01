@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Estilista de Bolsillo</title>
+<meta name="description" content="Tu colorimetría, tu armario y tus looks, con Claude.">
+<meta name="theme-color" content="#F2F1EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#15130F" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Estilista">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Figtree:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1>Estilista <em>de Bolsillo</em></h1>
+    <p class="sub" id="hdrSub">Tu colorimetría, tu armario y tus looks</p>
+  </div>
+  <div class="mode" role="group" aria-label="Modo">
+    <button type="button" id="modeDiario" aria-pressed="true">Diario</button>
+    <button type="button" id="modeNoche" aria-pressed="false">Noche</button>
+  </div>
+</header>
+
+<main id="main">
+  <!-- QUÉ ME PONGO -->
+  <section class="view" id="view-looks" hidden>
+    <div><h2 id="ofTitle">¿Qué me pongo hoy?</h2><p class="lead">Dime qué te apetece llevar y te dibujo tres looks completos, con maquillaje y joyas. Las piezas con borde discontinuo son las que te faltan.</p></div>
+    <div class="card">
+      <label class="f" for="ofQuiero">Quiero ponerme…<input id="ofQuiero" placeholder="mi blazer camel, una falda de satén…"></label>
+      <label class="f" for="ofAncla">O una prenda de mi armario<select id="ofAncla"><option value="">Ninguna en concreto</option></select></label>
+      <div class="grid2">
+        <label class="f" for="ofOcasion">Ocasión<select id="ofOcasion"></select></label>
+        <label class="f" for="ofTemp">Temporada<select id="ofTemp"><option>Otoño-invierno</option><option>Entretiempo</option><option>Primavera-verano</option></select></label>
+      </div>
+      <div class="row"><button class="btn" id="ofGo">Dibujar 3 looks</button><button class="btn ghost" id="ofStop" hidden>Detener</button><span class="status" id="ofStatus"></span></div>
+      <p class="err" id="ofErr" hidden></p>
+    </div>
+    <div id="ofResult"></div>
+    <div class="card" id="savedWrap" hidden><h3>Looks guardados</h3><div class="looks" id="savedList"></div></div>
+  </section>
+
+  <!-- ¿ME LA QUEDO? -->
+  <section class="view" id="view-analizar" hidden>
+    <div><h2>¿Me la quedo?</h2><p class="lead">Sube una captura de la tienda o una foto en el probador. El veredicto pesa por igual color, estilo, versatilidad con tu armario y calidad-precio, y tiene en cuenta tu silueta.</p></div>
+    <div class="card">
+      <label class="drop" for="anFiles"><strong>Elegir fotos de la prenda</strong><span>Hasta 3: web, probador o luz natural</span>
+        <input type="file" id="anFiles" accept="image/*" multiple hidden></label>
+      <div class="previews" id="anPreviews"></div>
+      <div class="grid2">
+        <label class="f" for="anPrecio">Precio (€)<input id="anPrecio" inputmode="decimal" placeholder="39,95"></label>
+        <label class="f" for="anTienda">Tienda<input id="anTienda" placeholder="Zara" list="tiendasList"></label>
+      </div>
+      <datalist id="tiendasList"><option>Zara</option><option>Mango</option><option>Massimo Dutti</option><option>COS</option><option>Uterqüe</option><option>H&amp;M</option></datalist>
+      <label class="f" for="anNotas">Notas (tejido, talla, cómo te queda)<textarea id="anNotas" placeholder="100% lana, algo ancha de hombros"></textarea></label>
+      <div class="row"><button class="btn" id="anGo" disabled>Analizar</button><button class="btn ghost" id="anStop" hidden>Detener</button><span class="status" id="anStatus"></span></div>
+      <p class="err" id="anErr" hidden></p>
+    </div>
+    <div id="anResult"></div>
+  </section>
+
+  <!-- ARMARIO -->
+  <section class="view" id="view-armario" hidden>
+    <div class="seg" role="group" aria-label="Armario o compras">
+      <button type="button" id="segPrendas" aria-pressed="true">Mis prendas</button>
+      <button type="button" id="segCompras" aria-pressed="false">Lista de compras</button>
+    </div>
+    <div id="prendasPane" class="stack">
+      <div class="row between"><p class="lead" id="closetCount">Cargando tus prendas…</p><button class="btn" id="addOpen">Añadir prenda</button></div>
+      <div id="addForm" class="sheet" hidden>
+        <label class="drop" for="addFile"><strong>Foto de la prenda</strong><span>La identifico y relleno los datos por ti</span>
+          <input type="file" id="addFile" accept="image/*" hidden></label>
+        <div class="previews" id="addPreview"></div>
+        <span class="status" id="addStatus"></span>
+        <div class="grid2">
+          <label class="f" for="addNombre">Nombre<input id="addNombre" placeholder="Blazer cruzado de lana"></label>
+          <label class="f" for="addCat">Categoría<select id="addCat"></select></label>
+          <label class="f" for="addTipo">Forma en el monigote<select id="addTipo"></select></label>
+          <label class="f" for="addColor">Color<input id="addColor" placeholder="Camel"></label>
+          <label class="f" for="addHex">Tono<input id="addHex" type="color" value="#b5835a"></label>
+          <label class="f" for="addEst">Estampado<select id="addEst"></select></label>
+          <label class="f" for="addTej">Tejido<select id="addTej"></select></label>
+          <label class="f" for="addPrecio">Precio (€)<input id="addPrecio" inputmode="decimal" placeholder="49,95"></label>
+          <label class="f" for="addTienda">Tienda<input id="addTienda" list="tiendasList" placeholder="Mango"></label>
+        </div>
+        <div class="row"><button class="btn" id="addSave">Guardar en mi armario</button><button class="btn ghost" id="addCancel">Cancelar</button></div>
+        <p class="err" id="addErr" hidden></p>
+      </div>
+      <div class="filters" id="catFilters"></div>
+      <div id="closetGrid" class="closet"></div>
+    </div>
+    <div id="comprasPane" class="stack" hidden>
+      <p class="lead" id="shLead">Lo que le falta a tu armario, en colores de tu paleta y ordenado por cuántos looks desbloquea.</p>
+      <div class="row"><button class="btn" id="shGo">Detectar lo que me falta</button><button class="btn ghost" id="shStop" hidden>Detener</button><span class="status" id="shStatus"></span></div>
+      <p class="err" id="shErr" hidden></p>
+      <div class="card" id="shList"></div>
+    </div>
+  </section>
+
+  <!-- DIARIO -->
+  <section class="view" id="view-diario" hidden>
+    <div><h2>Diario de looks</h2><p class="lead">Apunta lo que te pones y descubre qué prendas amortizas y cuáles se quedan en la percha.</p></div>
+    <div id="diStats"></div>
+    <div class="card">
+      <h3>Registrar un día</h3>
+      <div class="grid2">
+        <label class="f" for="diFecha">Fecha<input id="diFecha" type="date"></label>
+        <label class="f" for="diNota">Nota<input id="diNota" placeholder="Cena en Chamberí"></label>
+      </div>
+      <p class="status">Toca las prendas que llevaste:</p>
+      <div class="pickgrid" id="diPick"></div>
+      <div class="row"><button class="btn" id="diSave">Guardar día</button><span class="status" id="diStatus"></span></div>
+      <p class="err" id="diErr" hidden></p>
+    </div>
+    <div class="card" id="diList"></div>
+  </section>
+
+  <!-- YO -->
+  <section class="view" id="view-yo" hidden>
+    <div class="card">
+      <div><h2>Tu monigote</h2><p class="lead">Así apareces en cada look. Tu silueta y altura también ajustan los consejos de corte.</p></div>
+      <div id="avEditor"></div>
+      <div class="row"><button class="btn" type="button" id="avSave">Guardar mi monigote</button><span class="status" id="avStatus"></span></div>
+    </div>
+    <div id="perfilView"></div>
+    <div class="card">
+      <h3>Ajustes</h3>
+      <div class="kv"><span>Clave de Claude</span><b id="keyMask">Sin clave</b><button class="linkbtn" id="keyChange" type="button">Cambiar</button></div>
+      <label class="f" for="modelSel">Modelo<select id="modelSel"></select></label>
+      <p class="status">Equilibrado es la mejor relación calidad-coste. Económico es más rápido y barato; Máxima calidad, más fino y más caro.</p>
+      <div class="row">
+        <button class="btn ghost small" id="expBtn" type="button">Exportar copia de seguridad</button>
+        <label class="btn ghost small" for="impFile">Importar copia<input type="file" id="impFile" accept="application/json,.json" hidden></label>
+      </div>
+      <p class="status" id="bkStatus"></p>
+      <div class="row"><button class="linkbtn danger" id="wipeBtn" type="button">Borrar todos mis datos</button></div>
+      <p class="note">Tus fotos, tu armario y tu clave se guardan solo en este dispositivo. Las fotos se envían a Anthropic únicamente cuando pides un análisis. Haz una copia de seguridad de vez en cuando: si borras los datos del navegador o cambias de móvil, se pierden.</p>
+      <p class="note" id="installTip" hidden></p>
+    </div>
+  </section>
+</main>
+
+<nav class="tabbar" aria-label="Secciones">
+  <button type="button" data-tab="looks"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a2 2 0 0 1 2 2c0 1-1 1.5-2 2.2V9l8 6.5c.8.6.4 1.5-.5 1.5h-15c-.9 0-1.3-.9-.5-1.5L12 9"/></svg>Qué me pongo</button>
+  <button type="button" data-tab="analizar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>¿Me la quedo?</button>
+  <button type="button" data-tab="armario"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M12 3v18M10 12h-1M15 12h-1"/></svg>Armario</button>
+  <button type="button" data-tab="diario"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="1.5"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Diario</button>
+  <button type="button" data-tab="yo"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>Yo</button>
+</nav>
+
+<!-- BIENVENIDA Y CONFIGURACIÓN -->
+<div class="onb" id="onb" hidden>
+  <div class="onb-in" id="onbIn"></div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
