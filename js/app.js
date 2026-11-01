@@ -3,6 +3,7 @@ import * as ai from "./ai.js";
 import { figura, AV, AV_DEFAULT, safeHex, guessTipo } from "./figura.js";
 
 const { CATS, TIPOS, ESTAMPADOS, TEJIDOS } = ai;
+const VERSION = "1.2 · selfie";
 
 /* ---------- utilidades ---------- */
 const $ = id => document.getElementById(id);
@@ -601,7 +602,15 @@ function alertIn(box, msg) { box.append(h("p", { class: "err" }, msg)); }
 /* ---------- arranque ---------- */
 (async () => {
   setModo(state.modo); renderKey(); renderInstallTip(); show(lsGet("ebo.tab", "looks"));
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+  if ("serviceWorker" in navigator) {
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(reg => {
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => {}); });
+    }).catch(() => {});
+  }
+  $("version").textContent = "Versión " + VERSION;
   db.persist();
   let n = 0; const loaded = () => { if (++n >= 5) { state.loaded = true; renderCloset(); renderDiario(); } };
   db.on("closet", l => { state.closet = l; renderCloset(); renderDiario(); renderSaved(); loaded(); });
